@@ -96,10 +96,7 @@ export function DocumentList({ folderName }: DocumentListProps) {
                             {documents.length} document{documents.length !== 1 ? "s" : ""}
                         </p>
                     </div>
-                    <Button className="gap-2">
-                        <Upload className="h-4 w-4" />
-                        Upload
-                    </Button>
+                    
                 </div>
 
                 <Input

@@ -10,9 +10,12 @@ import { useState } from 'react'
 const HomePage = () => {
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isChatVisible, setIsChatVisible] = useState(true);
 
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
+
+    const toggleChat = () => setIsChatVisible(!isChatVisible);
 
     const handleFileUpload = (file: File) => {
         // For now, just log the file info. Implement actual upload logic as needed.
@@ -30,17 +33,22 @@ const HomePage = () => {
             </div>
 
             {/* Center Panel - Documents */}
-            <div className="flex-1 border-r border-border p-4 flex flex-col">
-                <div className="mb-4 flex justify-end">
+            <div className={`flex-1 border-r border-border p-4 flex flex-col ${isChatVisible ? '' : 'border-r-0'}`}>
+                <div className="mb-4 flex justify-between items-center">
                     <Button onClick={openModal}>Upload File</Button>
+                    <Button variant="outline" onClick={toggleChat}>
+                        {isChatVisible ? 'Hide Chat' : 'Show Chat'}
+                    </Button>
                 </div>
                 <DocumentList folderName={selectedFolderId ? "Selected Folder" : "No Folder Selected"} />
             </div>
 
             {/* Right Panel - Chat */}
-            <div className="w-96">
-                <ChatPanel />
-            </div>
+            {isChatVisible && (
+                <div className="w-96 border-l border-border">
+                    <ChatPanel />
+                </div>
+            )}
 
             <FileUploadModal
                 isOpen={isModalOpen}
