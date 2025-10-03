@@ -7,22 +7,45 @@ import { Input } from '@/components/ui/input';
 interface FileUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: (file: File) => void;
+  onUploadSuccess: (path: string) => void;
+  onUploadError: (error: string) => void;
 }
 
-const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUpload }) => {
+const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUploadSuccess, onUploadError }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
     setSelectedFile(file);
   };
 
-  const handleUpload = () => {
-    if (selectedFile) {
-      onUpload(selectedFile);
-      setSelectedFile(null);
-      onClose();
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        onUploadSuccess(result.path);
+        setSelectedFile(null);
+        onClose();
+      } else {
+        onUploadError(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      onUploadError('Network error occurred');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -44,7 +67,8 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
             <Input
               type="file"
               onChange={handleFileChange}
-              accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+              accept=".pdf,.txt"
+              disabled={isUploading}
             />
             {selectedFile && (
               <p className="text-sm text-muted-foreground">
@@ -52,11 +76,11 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
               </p>
             )}
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={handleClose}>
+              <Button variant="outline" onClick={handleClose} disabled={isUploading}>
                 Cancel
               </Button>
-              <Button onClick={handleUpload} disabled={!selectedFile}>
-                Upload
+              <Button onClick={handleUpload} disabled={!selectedFile || isUploading}>
+                {isUploading ? 'Uploading...' : 'Upload'}
               </Button>
             </div>
           </div>

@@ -17,11 +17,6 @@ const HomePage = () => {
 
     const toggleChat = () => setIsChatVisible(!isChatVisible);
 
-    const handleFileUpload = (file: File) => {
-        // For now, just log the file info. Implement actual upload logic as needed.
-        console.log('File uploaded:', file);
-    };
-
     return (
         <div className="flex h-screen bg-background">
             {/* Left Panel - Folders */}
@@ -53,7 +48,14 @@ const HomePage = () => {
             <FileUploadModal
                 isOpen={isModalOpen}
                 onClose={closeModal}
-                onUpload={handleFileUpload}
+                onUploadSuccess={(path) => {
+                    console.log('File uploaded successfully:', path);
+                    // You can add additional logic here, like refreshing the document list
+                }}
+                onUploadError={(error) => {
+                    console.error('Upload error:', error);
+                    // You can add error handling here, like showing a toast notification
+                }}
             />
         </div>
     )
