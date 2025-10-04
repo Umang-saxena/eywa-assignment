@@ -25,7 +25,7 @@ export async function GET() {
     const supabase = await getSupabaseServerClient();
 
     const { data: { user }, error } = await supabase.auth.getUser();
-    console.log("user in GET /api/folders:", user, error);
+    // console.log("user in GET /api/folders:", user, error);
     if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: folders, error: folderError } = await supabase
