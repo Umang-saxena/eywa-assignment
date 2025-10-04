@@ -72,7 +72,7 @@ const HomePage = () => {
             {/* Center Panel - Documents */}
             <div className={`flex-1 border-r border-border p-4 flex flex-col ${isChatVisible ? '' : 'border-r-0'}`}>
                 <div className="mb-4 flex justify-between items-center">
-                    <Button onClick={openModal}>Upload File</Button>
+                    <Button onClick={openModal} disabled={!selectedFolderId}>Upload File</Button>
                     <Button variant="outline" onClick={toggleChat}>
                         {isChatVisible ? 'Hide Chat' : 'Show Chat'}
                     </Button>

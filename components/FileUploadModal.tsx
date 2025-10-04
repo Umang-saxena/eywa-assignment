@@ -96,7 +96,7 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
               <Button variant="outline" onClick={handleClose} disabled={isUploading}>
                 Cancel
               </Button>
-              <Button onClick={handleUpload} disabled={selectedFiles.length === 0 || isUploading}>
+              <Button onClick={handleUpload} disabled={selectedFiles.length === 0 || isUploading || !folderId}>
                 {isUploading ? 'Uploading...' : 'Upload'}
               </Button>
             </div>
