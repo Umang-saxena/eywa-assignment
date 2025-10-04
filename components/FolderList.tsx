@@ -61,6 +61,7 @@ const handleCreateFolder = async () => {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include',
             body: JSON.stringify({ name: newFolderName.trim() }),
         });
 

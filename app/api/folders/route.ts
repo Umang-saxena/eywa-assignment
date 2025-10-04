@@ -50,51 +50,51 @@ export async function GET() {
 }
 
 
-// export async function POST(req: NextRequest) {
-//     try {
-//         const supabase = getSupabaseServerClient();
+export async function POST(req: NextRequest) {
+    try {
+        const supabase = await getSupabaseServerClient();
 
-//         const { data: { user }, error: userError } = await supabase.auth.getUser();
-//         if (userError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-//         const { name } = await req.json();
-//         if (!name) return NextResponse.json({ error: "Folder name is required" }, { status: 400 });
+        const { name } = await req.json();
+        if (!name) return NextResponse.json({ error: "Folder name is required" }, { status: 400 });
 
-//         const { data, error } = await supabase
-//             .from("folders")
-//             .insert([{ name, user_id: user.id }])
-//             .select()
-//             .single();
+        const { data, error } = await supabase
+            .from("folders")
+            .insert([{ name, user_id: user.id }])
+            .select()
+            .single();
 
-//         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-//         return NextResponse.json(data);
-//     } catch (err: any) {
-//         return NextResponse.json({ error: err.message }, { status: 500 });
-//     }
-// }
+        return NextResponse.json(data);
+    } catch (err: any) {
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+}
 
-// export async function DELETE(req: NextRequest) {
-//     try {
-//         const supabase = getSupabaseServerClient();
+export async function DELETE(req: NextRequest) {
+    try {
+        const supabase = await getSupabaseServerClient();
 
-//         const { data: { user }, error: userError } = await supabase.auth.getUser();
-//         if (userError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-//         const { searchParams } = new URL(req.url);
-//         const folderId = searchParams.get("id");
-//         if (!folderId) return NextResponse.json({ error: "Folder ID is required" }, { status: 400 });
+        const { searchParams } = new URL(req.url);
+        const folderId = searchParams.get("id");
+        if (!folderId) return NextResponse.json({ error: "Folder ID is required" }, { status: 400 });
 
-//         const { error } = await supabase
-//             .from("folders")
-//             .delete()
-//             .eq("id", folderId)
-//             .eq("user_id", user.id);
+        const { error } = await supabase
+            .from("folders")
+            .delete()
+            .eq("id", folderId)
+            .eq("user_id", user.id);
 
-//         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-//         return NextResponse.json({ success: true });
-//     } catch (err: any) {
-//         return NextResponse.json({ error: err.message }, { status: 500 });
-//     }
-// }
+        return NextResponse.json({ success: true });
+    } catch (err: any) {
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+}

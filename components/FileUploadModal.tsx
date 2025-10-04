@@ -13,21 +13,23 @@ interface FileUploadModalProps {
 }
 
 const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUploadSuccess, onUploadError, folderId }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
-    setSelectedFile(file);
+    const files = Array.from(event.target.files || []);
+    setSelectedFiles(files);
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
 
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      selectedFiles.forEach(file => {
+        formData.append('file', file);
+      });
       if (folderId) {
         formData.append('folder_id', folderId);
       }
@@ -40,8 +42,13 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
       const result = await response.json();
 
       if (response.ok) {
-        onUploadSuccess(result.path);
-        setSelectedFile(null);
+        if (result.uploadedFiles && result.uploadedFiles.length > 0) {
+          onUploadSuccess(result.uploadedFiles.map((f: any) => f.path).join(', '));
+        }
+        if (result.errors && result.errors.length > 0) {
+          onUploadError(`Some files failed: ${result.errors.map((e: any) => `${e.file}: ${e.error}`).join(', ')}`);
+        }
+        setSelectedFiles([]);
         onClose();
       } else {
         onUploadError(result.error || 'Upload failed');
@@ -54,7 +61,7 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
   };
 
   const handleClose = () => {
-    setSelectedFile(null);
+    setSelectedFiles([]);
     onClose();
   };
 
@@ -70,20 +77,26 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
           <div className="space-y-4">
             <Input
               type="file"
+              multiple
               onChange={handleFileChange}
               accept=".pdf,.txt"
               disabled={isUploading}
             />
-            {selectedFile && (
-              <p className="text-sm text-muted-foreground">
-                Selected: {selectedFile.name}
-              </p>
+            {selectedFiles.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                <p>Selected files:</p>
+                <ul>
+                  {selectedFiles.map((file, index) => (
+                    <li key={index}>{file.name}</li>
+                  ))}
+                </ul>
+              </div>
             )}
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={handleClose} disabled={isUploading}>
                 Cancel
               </Button>
-              <Button onClick={handleUpload} disabled={!selectedFile || isUploading}>
+              <Button onClick={handleUpload} disabled={selectedFiles.length === 0 || isUploading}>
                 {isUploading ? 'Uploading...' : 'Upload'}
               </Button>
             </div>

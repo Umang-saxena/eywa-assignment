@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
         const folderId = searchParams.get('folder_id');
 
         let query = supabase
-            .from('files')
+            .from('documents')
             .select('*')
             .order('uploaded_at', { ascending: false });
 

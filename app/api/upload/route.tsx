@@ -19,53 +19,63 @@ export async function POST(req: Request) {
         });
 
         const formData = await req.formData();
-        const file = formData.get("file") as File | null;
+        const files = formData.getAll("file") as File[];
         const folderId = formData.get("folder_id") as string | null;
 
-        if (!file) {
-            return NextResponse.json({ error: "No file provided" }, { status: 400 });
+        if (!files || files.length === 0) {
+            return NextResponse.json({ error: "No files provided" }, { status: 400 });
         }
 
         if (!folderId) {
             return NextResponse.json({ error: "Folder ID is required" }, { status: 400 });
         }
 
-        // ✅ Restrict to PDF and TXT
-        if (!["application/pdf", "text/plain"].includes(file.type)) {
-            return NextResponse.json({ error: "Only PDF/TXT files allowed" }, { status: 400 });
+        const uploadedFiles = [];
+        const errors = [];
+
+        for (const file of files) {
+            // ✅ Restrict to PDF and TXT
+            if (!["application/pdf", "text/plain"].includes(file.type)) {
+                errors.push({ file: file.name, error: "Only PDF/TXT files allowed" });
+                continue;
+            }
+
+            // You can prefix with user ID if you want user-specific storage
+            const filePath = `uploads/${folderId}/${file.name}`;
+
+            const { data, error } = await supabase.storage
+                .from("FileUpload") // your bucket name
+                .upload(filePath, file, { upsert: true });
+
+            if (error) {
+                errors.push({ file: file.name, error: error.message });
+                continue;
+            }
+
+            // Insert file metadata into documents table
+            const { data: fileData, error: insertError } = await supabase
+                .from('documents')
+                .insert([{
+                    name: file.name,
+                    folder_id: folderId,
+                    path: data.path,
+                    size: file.size,
+                    type: file.type,
+                    status: 'ready',
+                    uploaded_at: new Date().toISOString()
+                }])
+                .select()
+                .single();
+
+            if (insertError) {
+                errors.push({ file: file.name, error: insertError.message });
+                continue;
+            }
+
+            uploadedFiles.push(fileData);
         }
 
-        // You can prefix with user ID if you want user-specific storage
-        const filePath = `uploads/${folderId}/${file.name}`;
-
-        const { data, error } = await supabase.storage
-            .from("FileUpload") // your bucket name
-            .upload(filePath, file, { upsert: true });
-
-        if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-
-        // Insert file metadata into files table
-        const { data: fileData, error: insertError } = await supabase
-            .from('files')
-            .insert([{
-                name: file.name,
-                folder_id: folderId,
-                path: data.path,
-                size: file.size,
-                type: file.type,
-                status: 'ready',
-                uploaded_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-
-        if (insertError) {
-            return NextResponse.json({ error: insertError.message }, { status: 500 });
-        }
-
-        return NextResponse.json({ success: true, file: fileData });
+        return NextResponse.json({ success: true, uploadedFiles, errors });
     } catch (err: any) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
