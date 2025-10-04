@@ -20,6 +20,7 @@ const HomePage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isChatVisible, setIsChatVisible] = useState(true);
     const [loading, setLoading] = useState(true);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const router = useRouter();
 
     useEffect(() => {
@@ -76,7 +77,7 @@ const HomePage = () => {
                         {isChatVisible ? 'Hide Chat' : 'Show Chat'}
                     </Button>
                 </div>
-                <DocumentList folderName={selectedFolder ? selectedFolder.name : "No Folder Selected"} folderId={selectedFolderId} />
+                <DocumentList folderName={selectedFolder ? selectedFolder.name : "No Folder Selected"} folderId={selectedFolderId} refreshTrigger={refreshTrigger} />
             </div>
 
             {/* Right Panel - Chat */}
@@ -93,6 +94,7 @@ const HomePage = () => {
                     console.log('File uploaded successfully:', path);
                     // Refresh folders and documents
                     fetchFolders();
+                    setRefreshTrigger(prev => prev + 1);
                 }}
                 onUploadError={(error) => {
                     console.error('Upload error:', error);

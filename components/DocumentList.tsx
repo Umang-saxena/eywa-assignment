@@ -25,9 +25,10 @@ interface Document {
 interface DocumentListProps {
     folderName: string;
     folderId?: string | null;
+    refreshTrigger?: number;
 }
 
-export function DocumentList({ folderName, folderId }: DocumentListProps) {
+export function DocumentList({ folderName, folderId, refreshTrigger }: DocumentListProps) {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [loading, setLoading] = useState(true);
@@ -39,7 +40,7 @@ export function DocumentList({ folderName, folderId }: DocumentListProps) {
             setDocuments([]);
             setLoading(false);
         }
-    }, [folderId]);
+    }, [folderId, refreshTrigger]);
 
     const fetchDocuments = async (folderId: string) => {
         try {
