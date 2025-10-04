@@ -39,7 +39,7 @@ export async function GET() {
     const foldersWithCount = await Promise.all(
         folders.map(async (folder) => {
             const { count } = await supabase
-                .from("files")
+                .from("documents")
                 .select("*", { count: "exact", head: true })
                 .eq("folder_id", folder.id);
             return { ...folder, docCount: count ?? 0 };
