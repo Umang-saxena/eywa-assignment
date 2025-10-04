@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FolderPlus, Folder, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,35 +18,73 @@ interface FolderItem {
 }
 
 interface FolderListProps {
-    selectedFolderId?: string;
-    onSelectFolder: (folderId: string) => void;
+    selectedFolderId?: string | null;
+    onSelectFolder: (folderId: string | null) => void;
 }
 
 export function FolderList({ selectedFolderId, onSelectFolder }: FolderListProps) {
-    const [folders, setFolders] = useState<FolderItem[]>([
-        { id: "1", name: "Research Papers", docCount: 12 },
-        { id: "2", name: "Legal Documents", docCount: 8 },
-    ]);
+    const [folders, setFolders] = useState<FolderItem[]>([]);
     const [isCreating, setIsCreating] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
+    const [loading, setLoading] = useState(true);
 
-    const handleCreateFolder = () => {
-        if (newFolderName.trim()) {
-            const newFolder: FolderItem = {
-                id: Date.now().toString(),
-                name: newFolderName.trim(),
-                docCount: 0,
-            };
-            setFolders([...folders, newFolder]);
-            setNewFolderName("");
-            setIsCreating(false);
+    useEffect(() => {
+        fetchFolders();
+    }, []);
+
+    const fetchFolders = async () => {
+        try {
+            const response = await fetch('/api/folders');
+            if (response.ok) {
+                const data = await response.json();
+                setFolders(data);
+            }
+        } catch (error) {
+            console.error('Error fetching folders:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleDeleteFolder = (folderId: string) => {
-        setFolders(folders.filter(f => f.id !== folderId));
-        if (selectedFolderId === folderId) {
-            onSelectFolder(folders[0]?.id || "");
+    const handleCreateFolder = async () => {
+        if (newFolderName.trim()) {
+            try {
+                const response = await fetch('/api/folders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: newFolderName.trim() }),
+                });
+
+                if (response.ok) {
+                    const newFolder = await response.json();
+                    setFolders([...folders, { ...newFolder, docCount: 0 }]);
+                    setNewFolderName("");
+                    setIsCreating(false);
+                }
+            } catch (error) {
+                console.error('Error creating folder:', error);
+            }
+        }
+    };
+
+    const handleDeleteFolder = async (folderId: string) => {
+        try {
+            const response = await fetch(`/api/folders?id=${folderId}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                setFolders(folders.filter(f => f.id !== folderId));
+                if (selectedFolderId === folderId) {
+                    onSelectFolder(folders.find(f => f.id !== folderId)?.id || null);
+                }
+            } else {
+                console.error('Error deleting folder');
+            }
+        } catch (error) {
+            console.error('Error deleting folder:', error);
         }
     };
 

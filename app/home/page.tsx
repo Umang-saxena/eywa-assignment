@@ -1,16 +1,40 @@
 "use client";
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { ChatPanel } from '@/components/ChatPanel'
 import { FolderList } from '@/components/FolderList'
 import { DocumentList } from '@/components/DocumentList'
 import FileUploadModal from '@/components/FileUploadModal'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
+
+interface Folder {
+    id: string;
+    name: string;
+    docCount: number;
+}
 
 const HomePage = () => {
+    const [folders, setFolders] = useState<Folder[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isChatVisible, setIsChatVisible] = useState(true);
+
+    useEffect(() => {
+        fetchFolders();
+    }, []);
+
+    const fetchFolders = async () => {
+        try {
+            const response = await fetch('/api/folders');
+            if (response.ok) {
+                const data = await response.json();
+                setFolders(data);
+            }
+        } catch (error) {
+            console.error('Error fetching folders:', error);
+        }
+    };
+
+    const selectedFolder = folders.find(f => f.id === selectedFolderId);
 
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
@@ -35,7 +59,7 @@ const HomePage = () => {
                         {isChatVisible ? 'Hide Chat' : 'Show Chat'}
                     </Button>
                 </div>
-                <DocumentList folderName={selectedFolderId ? "Selected Folder" : "No Folder Selected"} />
+                <DocumentList folderName={selectedFolder ? selectedFolder.name : "No Folder Selected"} folderId={selectedFolderId} />
             </div>
 
             {/* Right Panel - Chat */}
@@ -50,12 +74,14 @@ const HomePage = () => {
                 onClose={closeModal}
                 onUploadSuccess={(path) => {
                     console.log('File uploaded successfully:', path);
-                    // You can add additional logic here, like refreshing the document list
+                    // Refresh folders and documents
+                    fetchFolders();
                 }}
                 onUploadError={(error) => {
                     console.error('Upload error:', error);
                     // You can add error handling here, like showing a toast notification
                 }}
+                folderId={selectedFolderId}
             />
         </div>
     )

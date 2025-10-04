@@ -9,9 +9,10 @@ interface FileUploadModalProps {
   onClose: () => void;
   onUploadSuccess: (path: string) => void;
   onUploadError: (error: string) => void;
+  folderId?: string | null;
 }
 
-const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUploadSuccess, onUploadError }) => {
+const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUploadSuccess, onUploadError, folderId }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -27,6 +28,9 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      if (folderId) {
+        formData.append('folder_id', folderId);
+      }
 
       const response = await fetch('/api/upload', {
         method: 'POST',

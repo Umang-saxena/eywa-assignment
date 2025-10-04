@@ -20,9 +20,14 @@ export async function POST(req: Request) {
 
         const formData = await req.formData();
         const file = formData.get("file") as File | null;
+        const folderId = formData.get("folder_id") as string | null;
 
         if (!file) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
+        }
+
+        if (!folderId) {
+            return NextResponse.json({ error: "Folder ID is required" }, { status: 400 });
         }
 
         // ✅ Restrict to PDF and TXT
@@ -31,7 +36,7 @@ export async function POST(req: Request) {
         }
 
         // You can prefix with user ID if you want user-specific storage
-        const filePath = `uploads/${file.name}`;
+        const filePath = `uploads/${folderId}/${file.name}`;
 
         const { data, error } = await supabase.storage
             .from("FileUpload") // your bucket name
@@ -41,7 +46,26 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true, path: data.path });
+        // Insert file metadata into files table
+        const { data: fileData, error: insertError } = await supabase
+            .from('files')
+            .insert([{
+                name: file.name,
+                folder_id: folderId,
+                path: data.path,
+                size: file.size,
+                type: file.type,
+                status: 'ready',
+                uploaded_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+        if (insertError) {
+            return NextResponse.json({ error: insertError.message }, { status: 500 });
+        }
+
+        return NextResponse.json({ success: true, file: fileData });
     } catch (err: any) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }

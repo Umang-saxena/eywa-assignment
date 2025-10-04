@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, FileText, File, MoreVertical, Trash2, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,38 +23,36 @@ interface Document {
 
 interface DocumentListProps {
     folderName: string;
+    folderId?: string | null;
 }
 
-export function DocumentList({ folderName }: DocumentListProps) {
-    const [documents, setDocuments] = useState<Document[]>([
-        {
-            id: "1",
-            name: "Annual Report 2024.pdf",
-            type: "pdf",
-            size: "2.4 MB",
-            pages: 124,
-            uploadedAt: "2 hours ago",
-            status: "ready",
-        },
-        {
-            id: "2",
-            name: "Meeting Notes.txt",
-            type: "txt",
-            size: "12 KB",
-            uploadedAt: "1 day ago",
-            status: "ready",
-        },
-        {
-            id: "3",
-            name: "Contract Draft.pdf",
-            type: "pdf",
-            size: "1.8 MB",
-            pages: 45,
-            uploadedAt: "Just now",
-            status: "processing",
-        },
-    ]);
+export function DocumentList({ folderName, folderId }: DocumentListProps) {
+    const [documents, setDocuments] = useState<Document[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (folderId) {
+            fetchDocuments(folderId);
+        } else {
+            setDocuments([]);
+            setLoading(false);
+        }
+    }, [folderId]);
+
+    const fetchDocuments = async (folderId: string) => {
+        try {
+            const response = await fetch(`/api/files?folder_id=${folderId}`);
+            if (response.ok) {
+                const data = await response.json();
+                setDocuments(data);
+            }
+        } catch (error) {
+            console.error("Error fetching documents:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const getStatusIcon = (status: Document["status"]) => {
         switch (status) {
@@ -96,7 +94,6 @@ export function DocumentList({ folderName }: DocumentListProps) {
                             {documents.length} document{documents.length !== 1 ? "s" : ""}
                         </p>
                     </div>
-                    
                 </div>
 
                 <Input
@@ -188,4 +185,3 @@ export function DocumentList({ folderName }: DocumentListProps) {
             </div>
         </div>
     );
-}
