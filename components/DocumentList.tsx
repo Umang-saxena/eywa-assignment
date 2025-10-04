@@ -185,3 +185,4 @@ export function DocumentList({ folderName, folderId }: DocumentListProps) {
             </div>
         </div>
     );
+}
