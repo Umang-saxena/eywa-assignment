@@ -10,8 +10,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
-    // ✅ Await cookies()
     const cookieStore = await cookies();
+
+    const cookiesToSet: Array<{ name: string; value: string; options: any }> = [];
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,31 +20,36 @@ export async function POST(req: NextRequest) {
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            const response = NextResponse.next(); // create a response to attach cookies
-            cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, options as any);
-            });
-            return response;
+          setAll: (cookies) => {
+            cookiesToSet.push(...cookies);
           },
         },
       }
     );
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
 
     if (error || !data.session) {
-      return NextResponse.json({ error: error?.message || "Login failed" }, { status: 400 });
+      return NextResponse.json({
+        error: error?.message || "Login failed"
+      }, { status: 400 });
     }
 
-    const response = NextResponse.json({ success: true, data });
+    const response = NextResponse.json({
+      success: true,
+      user: data.user,
+      session: data.session
+    });
 
-    response.cookies.set("sb-access-token", data.session.access_token, { path: "/" });
-    response.cookies.set("sb-refresh-token", data.session.refresh_token, { path: "/" });
-    response.cookies.set("sb-expires-in", data.session.expires_in.toString(), { path: "/" });
-    response.cookies.set("sb-token-type", data.session.token_type, { path: "/" });
+    cookiesToSet.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, options);
+    });
 
     return response;
+
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

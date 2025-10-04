@@ -5,6 +5,8 @@ import { FolderList } from '@/components/FolderList'
 import { DocumentList } from '@/components/DocumentList'
 import FileUploadModal from '@/components/FileUploadModal'
 import { Button } from '@/components/ui/button'
+import { supabase } from '@/lib/supabaseClient'
+import { useRouter } from 'next/navigation'
 
 interface Folder {
     id: string;
@@ -17,14 +19,29 @@ const HomePage = () => {
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isChatVisible, setIsChatVisible] = useState(true);
+    const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
     useEffect(() => {
-        fetchFolders();
+        checkAuth();
     }, []);
+
+    const checkAuth = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            router.push('/auth');
+            return;
+        }
+        setLoading(false);
+        fetchFolders();
+    };
 
     const fetchFolders = async () => {
         try {
-            const response = await fetch('/api/folders');
+            const response = await fetch('/api/folders',{
+                method: 'GET',
+                credentials: 'include',
+            });
             if (response.ok) {
                 const data = await response.json();
                 setFolders(data);

@@ -33,60 +33,69 @@ export function FolderList({ selectedFolderId, onSelectFolder }: FolderListProps
     }, []);
 
     const fetchFolders = async () => {
-        try {
-            const response = await fetch('/api/folders');
-            if (response.ok) {
-                const data = await response.json();
-                setFolders(data);
-            }
-        } catch (error) {
-            console.error('Error fetching folders:', error);
-        } finally {
-            setLoading(false);
+    try {
+        // console.log("Fetching folders with credentials");
+        const response = await fetch('/api/folders',{
+            method: 'GET',
+            credentials: 'include',
+        });
+        if (response.ok) {
+            const data = await response.json();
+            setFolders(data);
+        } else {
+            console.error('Error fetching folders:', await response.json());
         }
-    };
+    } catch (error) {
+        console.error('Error fetching folders:', error);
+    } finally {
+        setLoading(false);
+    }
+};
 
-    const handleCreateFolder = async () => {
-        if (newFolderName.trim()) {
-            try {
-                const response = await fetch('/api/folders', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ name: newFolderName.trim() }),
-                });
+const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
 
-                if (response.ok) {
-                    const newFolder = await response.json();
-                    setFolders([...folders, { ...newFolder, docCount: 0 }]);
-                    setNewFolderName("");
-                    setIsCreating(false);
-                }
-            } catch (error) {
-                console.error('Error creating folder:', error);
-            }
+    try {
+        const response = await fetch('/api/folders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name: newFolderName.trim() }),
+        });
+
+        if (response.ok) {
+            const newFolder = await response.json();
+            setFolders([...folders, { ...newFolder, docCount: 0 }]);
+            setNewFolderName("");
+            setIsCreating(false);
+        } else {
+            console.error('Error creating folder:', await response.json());
         }
-    };
+    } catch (error) {
+        console.error('Error creating folder:', error);
+    }
+};
 
-    const handleDeleteFolder = async (folderId: string) => {
-        try {
-            const response = await fetch(`/api/folders?id=${folderId}`, {
-                method: 'DELETE',
-            });
+const handleDeleteFolder = async (folderId: string) => {
+    try {
+        const response = await fetch(`/api/folders?id=${folderId}`, {
+            method: 'DELETE',
+        });
 
-            if (response.ok) {
-                setFolders(folders.filter(f => f.id !== folderId));
-                if (selectedFolderId === folderId) {
-                    onSelectFolder(folders.find(f => f.id !== folderId)?.id || null);
-                }
-            } else {
-                console.error('Error deleting folder');
+        if (response.ok) {
+            setFolders(folders.filter(f => f.id !== folderId));
+            if (selectedFolderId === folderId) {
+                onSelectFolder(folders.find(f => f.id !== folderId)?.id || null);
             }
-        } catch (error) {
-            console.error('Error deleting folder:', error);
+        } else {
+            console.error('Error deleting folder:', await response.json());
         }
-    };
+    } catch (error) {
+        console.error('Error deleting folder:', error);
+    }
+};
+
 
     return (
         <div className="h-full flex flex-col border-r border-border bg-background">

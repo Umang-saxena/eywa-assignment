@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { supabase } from "@/lib/supabaseClient"
+
 import { useRouter } from "next/navigation"
 
 export default function AuthForm() {
@@ -49,16 +49,20 @@ export default function AuthForm() {
     }
 
     setLoading(true)
-    const { data, error: supabaseError } = await supabase.auth.signUp({
-      email,
-      password,
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
     })
+    const data = await response.json()
     setLoading(false)
 
-    if (supabaseError) {
-      setError(supabaseError.message)
+    if (!response.ok) {
+      setError(data.error || 'Signup failed')
     } else {
-      // console.log("Signed up:", data)
+      console.log("Signup response:", data)
       router.push('/home')
     }
   }
@@ -78,16 +82,20 @@ export default function AuthForm() {
     }
 
     setLoading(true)
-    const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
     })
+    const data = await response.json()
     setLoading(false)
 
-    if (supabaseError) {
-      setError(supabaseError.message)
+    if (!response.ok) {
+      setError(data.error || 'Login failed')
     } else {
-      // console.log("Signed in:", data)
+      console.log("Login response:", data)
       router.push('/home')
     }
   }
