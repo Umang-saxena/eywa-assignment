@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Upload, FileText, File, MoreVertical, Trash2, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, FileText, File, MoreVertical, Trash2, Loader2, CheckCircle2, AlertCircle, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -19,6 +19,7 @@ interface Document {
     pages?: number;
     uploadedAt: string;
     status: "processing" | "ready" | "failed";
+    path?: string;
 }
 
 interface DocumentListProps {
@@ -80,8 +81,27 @@ export function DocumentList({ folderName, folderId }: DocumentListProps) {
         doc.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const handleDelete = (docId: string) => {
-        setDocuments(documents.filter(d => d.id !== docId));
+    const handleDelete = async (docId: string) => {
+        try {
+            const response = await fetch(`/api/files?id=${docId}`, {
+                method: 'DELETE',
+            });
+            if (response.ok) {
+                setDocuments(documents.filter(d => d.id !== docId));
+            } else {
+                console.error("Failed to delete document");
+            }
+        } catch (error) {
+            console.error("Error deleting document:", error);
+        }
+    };
+
+    const handleView = (path?: string) => {
+        if (!path) return;
+        // Construct public URL for the file in Supabase storage
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/FileUpload/${path}`;
+        window.open(publicUrl, "_blank");
     };
 
     return (
@@ -167,6 +187,12 @@ export function DocumentList({ folderName, folderId }: DocumentListProps) {
                                                         >
                                                             <Trash2 className="h-4 w-4 mr-2" />
                                                             Delete
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleView(doc.path)}
+                                                        >
+                                                            <Eye className="h-4 w-4 mr-2" />
+                                                            View
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
