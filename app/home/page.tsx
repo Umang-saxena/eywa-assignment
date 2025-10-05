@@ -20,7 +20,7 @@ const HomePage = () => {
     const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
     const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isChatVisible, setIsChatVisible] = useState(true);
+    const [isChatVisible, setIsChatVisible] = useState(false);
     const [loading, setLoading] = useState(true);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const router = useRouter();
@@ -75,6 +75,9 @@ const HomePage = () => {
     const handleSelectFile = (fileId: string | null, fileName?: string | null) => {
         setSelectedFileId(fileId);
         setSelectedFileName(fileName || null);
+        if (fileId) {
+            setIsChatVisible(true);
+        }
     };
 
     if (loading) {

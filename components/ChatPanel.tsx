@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from "react";
 import { Send, FileText, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
+import { supabase } from "@/lib/supabaseClient";
 
 interface Citation {
     docName: string;
@@ -15,7 +16,7 @@ interface Citation {
 
 interface Message {
     id: string;
-    role: "user" | "assistant";
+    role: "user" | "assistant" | "system";
     content: string;
     citations?: Citation[];
     chunks?: string[];
@@ -31,10 +32,32 @@ export function ChatPanel({ selectedFileId, selectedFileName }: ChatPanelProps) 
     const [input, setInput] = useState("");
     const [showChunks, setShowChunks] = useState<Record<string, boolean>>({});
     const [isLoading, setIsLoading] = useState(false);
+    const [userName, setUserName] = useState<string | null>(null);
+
+    useEffect(() => {
+        // Fetch user name from supabase auth
+        const fetchUserName = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // Use user.user_metadata.name if exists, else fallback to email prefix
+                const name = (user.user_metadata && user.user_metadata.name) || user.email?.split("@")[0] || "User";
+                setUserName(name);
+            }
+        };
+        fetchUserName();
+    }, []);
 
     useEffect(() => {
         // Reset messages when selected file changes
         setMessages([]);
+        if (selectedFileId ) {
+            // Add greeting message
+            setMessages([{
+                id: "greeting",
+                role: "system",
+                content: `Hello, how can we help you?`
+            }]);
+        }
     }, [selectedFileId]);
 
     const handleSend = async () => {
@@ -128,7 +151,9 @@ export function ChatPanel({ selectedFileId, selectedFileName }: ChatPanelProps) 
                                     <Card
                                         className={`p-3 max-w-[85%] ${message.role === "user"
                                                 ? "bg-primary text-primary-foreground"
-                                                : "bg-card"
+                                                : message.role === "system"
+                                                    ? "bg-accent text-foreground font-semibold"
+                                                    : "bg-card"
                                             }`}
                                     >
                                         <p className="text-sm whitespace-pre-wrap">{message.content}</p>
