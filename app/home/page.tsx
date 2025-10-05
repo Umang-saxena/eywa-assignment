@@ -17,6 +17,8 @@ interface Folder {
 const HomePage = () => {
     const [folders, setFolders] = useState<Folder[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+    const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+    const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isChatVisible, setIsChatVisible] = useState(true);
     const [loading, setLoading] = useState(true);
@@ -70,6 +72,11 @@ const HomePage = () => {
 
     const toggleChat = () => setIsChatVisible(!isChatVisible);
 
+    const handleSelectFile = (fileId: string | null, fileName?: string | null) => {
+        setSelectedFileId(fileId);
+        setSelectedFileName(fileName || null);
+    };
+
     if (loading) {
         return <div className="flex items-center justify-center h-screen">Loading...</div>;
     }
@@ -92,13 +99,13 @@ const HomePage = () => {
                         {isChatVisible ? 'Hide Chat' : 'Show Chat'}
                     </Button>
                 </div>
-                <DocumentList folderName={selectedFolder ? selectedFolder.name : "No Folder Selected"} folderId={selectedFolderId} refreshTrigger={refreshTrigger} />
+                <DocumentList folderName={selectedFolder ? selectedFolder.name : "No Folder Selected"} folderId={selectedFolderId} refreshTrigger={refreshTrigger} selectedFileId={selectedFileId} onSelectFile={handleSelectFile} />
             </div>
 
             {/* Right Panel - Chat */}
             {isChatVisible && (
                 <div className="w-96 border-l border-border">
-                    <ChatPanel />
+                    <ChatPanel selectedFileId={selectedFileId} selectedFileName={selectedFileName} />
                 </div>
             )}
 

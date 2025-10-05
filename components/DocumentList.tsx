@@ -26,9 +26,11 @@ interface DocumentListProps {
     folderName: string;
     folderId?: string | null;
     refreshTrigger?: number;
+    selectedFileId?: string | null;
+    onSelectFile?: (fileId: string | null, fileName?: string | null) => void;
 }
 
-export function DocumentList({ folderName, folderId, refreshTrigger }: DocumentListProps) {
+export function DocumentList({ folderName, folderId, refreshTrigger, selectedFileId, onSelectFile }: DocumentListProps) {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [loading, setLoading] = useState(true);
@@ -155,68 +157,72 @@ export function DocumentList({ folderName, folderId, refreshTrigger }: DocumentL
                     </div>
                 ) : (
                     <div className="grid gap-3">
-                        {filteredDocs.map((doc) => (
-                            <Card key={doc.id} className="p-4 hover:shadow-md transition-shadow">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                        {doc.type === "pdf" ? (
-                                            <FileText className="h-5 w-5 text-primary" />
-                                        ) : (
-                                            <File className="h-5 w-5 text-primary" />
-                                        )}
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium truncate text-foreground">{doc.name}</p>
-                                                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                                                    <span>{doc.size}</span>
-                                                    {doc.pages && (
-                                                        <>
-                                                            <span>•</span>
-                                                            <span>{doc.pages} pages</span>
-                                                        </>
-                                                    )}
-                                                    <span>•</span>
-                                                    <span>{doc.uploadedAt}</span>
+                        {filteredDocs.map((doc) => {
+                            const isSelected = doc.id === selectedFileId;
+                            return (
+                                <Card
+                                    key={doc.id}
+                                    className={`p-4 hover:shadow-md transition-shadow cursor-pointer ${isSelected ? 'border-2 border-primary' : ''}`}
+                                    onClick={() => onSelectFile && onSelectFile(doc.id, doc.name)}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                            {doc.type === "pdf" ? (
+                                                <FileText className="h-5 w-5 text-primary" />
+                                            ) : (
+                                                <File className="h-5 w-5 text-primary" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium truncate text-foreground">{doc.name}</p>
+                                                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                                        <span>{doc.size}</span>
+                                                        {doc.pages && (
+                                                            <>
+                                                                <span>•</span>
+                                                                <span>{doc.pages} pages</span>
+                                                            </>
+                                                        )}
+                                                        <span>•</span>
+                                                        <span>{doc.uploadedAt}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {getStatusIcon(doc.status)}
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                className="text-destructive"
+                                                                onClick={() => handleDelete(doc.id)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleView(doc.path)}
+                                                            >
+                                                                <Eye className="h-4 w-4 mr-2" />
+                                                                View
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </div>
                                             </div>
-
-                                            <div className="flex items-center gap-2">
-                                                {getStatusIcon(doc.status)}
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <MoreVertical className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem
-                                                            className="text-destructive"
-                                                            onClick={() => handleDelete(doc.id)}
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-2" />
-                                                            Delete
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleView(doc.path)}
-                                                        >
-                                                            <Eye className="h-4 w-4 mr-2" />
-                                                            View
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                            <div className="mt-2">
+                                                {getStatusBadge(doc.status)}
                                             </div>
                                         </div>
-
-                                        <div className="mt-2">
-                                            {getStatusBadge(doc.status)}
-                                        </div>
                                     </div>
-                                </div>
-                            </Card>
-                        ))}
+                                </Card>
+                            );
+                        })}
                     </div>
                 )}
             </div>
