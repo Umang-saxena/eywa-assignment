@@ -12,6 +12,16 @@ import {
 import { Card } from "@/components/ui/card";
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface FolderItem {
     id: string;
@@ -29,6 +39,7 @@ export function FolderList({ selectedFolderId, onSelectFolder }: FolderListProps
     const [isCreating, setIsCreating] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
     const [loading, setLoading] = useState(true);
+    const [folderToDelete, setFolderToDelete] = useState<FolderItem | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -186,7 +197,7 @@ const handleDeleteFolder = async (folderId: string) => {
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 className="text-destructive"
-                                                onClick={() => handleDeleteFolder(folder.id)}
+                                                onClick={() => setFolderToDelete(folder)}
                                             >
                                                 <Trash2 className="h-4 w-4 mr-2" />
                                                 Delete
@@ -208,6 +219,26 @@ const handleDeleteFolder = async (folderId: string) => {
                     Logout
                 </Button>
             </div>
+
+            <AlertDialog open={!!folderToDelete} onOpenChange={() => setFolderToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Folder</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete "{folderToDelete?.name}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (folderToDelete) {
+                                handleDeleteFolder(folderToDelete.id);
+                                setFolderToDelete(null);
+                            }
+                        }}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
