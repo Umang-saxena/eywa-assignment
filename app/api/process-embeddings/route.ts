@@ -1,24 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Import pdf-parse at the top level to avoid dynamic import issues
-let pdfParse: any = null;
-
-// Initialize pdf-parse once
-async function getPdfParse() {
-    if (!pdfParse) {
-        try {
-            // Try to import from the correct path
-            const pdfParseModule = await import('pdf-parse/lib/pdf-parse.js');
-            pdfParse = pdfParseModule.default || pdfParseModule;
-        } catch (err) {
-            // Fallback to default import
-            const pdfParseModule = await import('pdf-parse');
-            pdfParse = pdfParseModule.default;
-        }
-    }
-    return pdfParse;
-}
+// Import pdf-parse at the top to avoid dynamic import issues
+import pdfParse from 'pdf-parse';
 
 export async function POST(req: Request) {
     try {
@@ -118,16 +102,11 @@ export async function POST(req: Request) {
                         const arrayBuffer = await file.arrayBuffer();
                         const buffer = Buffer.from(arrayBuffer);
                         
-                        // Get pdf-parse function
-                        const parsePdf = await getPdfParse();
-                        
-                        // Parse PDF with options to prevent file system access
-                        const pdfData = await parsePdf(buffer, {
-                            max: 0, // parse all pages
-                            version: 'v2.0.550' // specify version
-                        });
-                        
+                        // Use the imported pdfParse function directly
+                        const pdfData = await pdfParse(buffer);
                         content = pdfData.text || "";
+                        
+                        // Clean up the extracted text
                         content = content.trim();
                         
                         if (!content) {
@@ -143,11 +122,6 @@ export async function POST(req: Request) {
                     try {
                         content = await file.text();
                         content = content.trim();
-                        
-                        if (!content) {
-                            console.warn(`Empty text file: ${fileName}`);
-                            content = "[Text file is empty]";
-                        }
                     } catch (txtError: any) {
                         console.error(`TXT reading error for ${fileName}:`, txtError.message);
                         content = "[Text file reading failed]";

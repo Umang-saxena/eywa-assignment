@@ -7,6 +7,7 @@ import FileUploadModal from '@/components/FileUploadModal'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner';
 
 interface Folder {
     id: string;
@@ -122,6 +123,7 @@ const HomePage = () => {
                     setRefreshTrigger(prev => prev + 1);
                 }}
                 onUploadError={(error) => {
+                    // toast.error('File upload failed');
                     console.error('Upload error:', error);
                     // You can add error handling here, like showing a toast notification
                 }}

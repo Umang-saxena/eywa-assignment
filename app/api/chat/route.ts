@@ -1,89 +1,229 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// Validate environment variables
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!GOOGLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  throw new Error('Missing required environment variables');
+}
+
+const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
 interface ChatRequest {
   message: string;
   fileId: string;
+  conversationHistory?: Array<{ role: string; content: string }>;
 }
 
 interface Citation {
   docName: string;
   page?: number;
   section?: string;
+  similarity?: number;
 }
 
 interface ChatResponse {
   content: string;
   citations: Citation[];
   chunks: string[];
+  error?: string;
+}
+
+interface EmbeddingChunk {
+  content: string;
+  page_number?: number;
+  chunk_index: number;
+  similarity: number;
+  document_name?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, fileId }: ChatRequest = await request.json();
+    // Parse and validate request body
+    const body = await request.json();
+    const { message, fileId, conversationHistory = [] }: ChatRequest = body;
 
-    if (!message || !fileId) {
+    // Input validation
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json(
-        { error: 'Message and fileId are required' },
+        { error: 'Valid message is required' },
         { status: 400 }
       );
     }
 
-    // Get the file details from Supabase
+    if (!fileId || typeof fileId !== 'string') {
+      return NextResponse.json(
+        { error: 'Valid fileId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Trim message to reasonable length
+    const trimmedMessage = message.trim().slice(0, 2000);
+
+    // Initialize Supabase client
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    // Fetch file details from database
     const { data: fileData, error: fileError } = await supabase
-      .from('files')
-      .select('name, content, folder_id')
+      .from('documents')
+      .select('id, name, folder_id, type')
       .eq('id', fileId)
       .single();
 
-    if (fileError || !fileData) {
+    if (fileError) {
+      console.error('Database error:', fileError);
+      return NextResponse.json(
+        { error: 'Failed to fetch file details' },
+        { status: 500 }
+      );
+    }
+
+    if (!fileData) {
       return NextResponse.json(
         { error: 'File not found' },
         { status: 404 }
       );
     }
 
-    // Mock RAG implementation
-    // In a real implementation, this would:
-    // 1. Generate embeddings for the query
-    // 2. Search vector database for similar chunks
-    // 3. Use LLM to generate response based on retrieved chunks
+    // Generate embedding for the user's query
+    let queryEmbedding: number[];
+    try {
+      const embeddingModel = genAI.getGenerativeModel({ 
+        model: 'text-embedding-004' 
+      });
+      const queryEmbeddingResult = await embeddingModel.embedContent(trimmedMessage);
+      queryEmbedding = queryEmbeddingResult.embedding.values;
 
-    const mockChunks = [
-      `This is a relevant chunk from ${fileData.name} that relates to the query.`,
-      `Another important section from the document that provides context.`,
-      `Key information extracted from page 1 of ${fileData.name}.`
-    ];
-
-    const mockCitations: Citation[] = [
-      {
-        docName: fileData.name,
-        page: 1,
-        section: 'Introduction'
-      },
-      {
-        docName: fileData.name,
-        page: 2,
-        section: 'Main Content'
+      // Validate embedding
+      if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
+        throw new Error('Invalid embedding generated');
       }
-    ];
+    } catch (embeddingError) {
+      console.error('Embedding generation error:', embeddingError);
+      return NextResponse.json(
+        { error: 'Failed to generate query embedding' },
+        { status: 500 }
+      );
+    }
 
-    // Generate a mock response based on the message
-    const mockResponse = `Based on the content in ${fileData.name}, here's my response to your question: "${message}". 
+    // Search for similar document chunks using vector similarity
+    const { data: similarChunks, error: searchError } = await supabase.rpc(
+      'search_embeddings',
+      {
+        query_embedding: queryEmbedding,
+        folder_id: fileData.folder_id,
+        match_threshold: 0.7,
+        match_count: 5,
+      }
+    );
 
-This is a simulated RAG response that would normally be generated by an AI model using retrieved document chunks as context. The actual implementation would use embeddings and vector search to find relevant passages from your uploaded documents.`;
+    if (searchError) {
+      console.error('Vector search error:', searchError);
+      return NextResponse.json(
+        { error: 'Failed to search document embeddings' },
+        { status: 500 }
+      );
+    }
 
+    // Handle case where no relevant chunks are found
+    if (!similarChunks || similarChunks.length === 0) {
+      return NextResponse.json({
+        content: "I couldn't find relevant information in the document to answer your question. Could you please rephrase or ask something else?",
+        citations: [],
+        chunks: [],
+      });
+    }
+
+    // Extract and prepare context from retrieved chunks
+    const typedChunks = similarChunks as EmbeddingChunk[];
+    const contextChunks = typedChunks.map((chunk) => chunk.content);
+    const context = contextChunks.join('\n\n---\n\n');
+
+    // Build conversation context if history exists
+    let conversationContext = '';
+    if (conversationHistory.length > 0) {
+      conversationContext = conversationHistory
+        .slice(-5) // Keep last 5 messages for context
+        .map((msg) => `${msg.role}: ${msg.content}`)
+        .join('\n');
+    }
+
+    // Generate response using Gemini with improved prompt
+    let generatedContent: string;
+    try {
+      const model = genAI.getGenerativeModel({ 
+        model: 'gemini-1.5-flash',
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.95,
+          topK: 40,
+          maxOutputTokens: 1024,
+        },
+      });
+
+      const prompt = `You are a knowledgeable assistant helping users understand documents. Answer questions based strictly on the provided context.
+
+Rules:
+- Only use information from the context below
+- If the context doesn't contain the answer, politely say you don't have that information
+- Be concise but thorough
+- Use natural, conversational language
+- Cite specific parts of the context when relevant
+
+${conversationContext ? `Previous Conversation:\n${conversationContext}\n\n` : ''}Document Context:
+${context}
+
+Current Question: ${trimmedMessage}
+
+Answer:`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      generatedContent = response.text() || "I apologize, but I couldn't generate a response. Please try again.";
+    } catch (generationError) {
+      console.error('Content generation error:', generationError);
+      return NextResponse.json(
+        { error: 'Failed to generate response' },
+        { status: 500 }
+      );
+    }
+
+    // Prepare citations with similarity scores
+    const citations: Citation[] = typedChunks.map((chunk) => ({
+      docName: fileData.name,
+      page: chunk.page_number,
+      section: `Chunk ${chunk.chunk_index}`,
+      similarity: Math.round(chunk.similarity * 100) / 100,
+    }));
+
+    // Build response
     const response: ChatResponse = {
-      content: mockResponse,
-      citations: mockCitations,
-      chunks: mockChunks
+      content: generatedContent,
+      citations: citations,
+      chunks: contextChunks,
     };
 
-    return NextResponse.json(response);
-  } catch (error) {
+    return NextResponse.json(response, { status: 200 });
+
+  } catch (error: any) {
     console.error('Chat API error:', error);
+    
+    // Return user-friendly error message
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: 'An unexpected error occurred. Please try again.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      },
       { status: 500 }
     );
   }
