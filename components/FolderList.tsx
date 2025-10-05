@@ -10,6 +10,8 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/card";
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 interface FolderItem {
     id: string;
@@ -27,10 +29,16 @@ export function FolderList({ selectedFolderId, onSelectFolder }: FolderListProps
     const [isCreating, setIsCreating] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
     useEffect(() => {
         fetchFolders();
     }, []);
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        router.push('/auth');
+    };
 
     const fetchFolders = async () => {
     try {
@@ -190,6 +198,15 @@ const handleDeleteFolder = async (folderId: string) => {
                         ))}
                     </div>
                 )}
+            </div>
+            <div className="p-4 border-t border-border">
+                <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleLogout}
+                >
+                    Logout
+                </Button>
             </div>
         </div>
     );
