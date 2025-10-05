@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { useRouter } from "next/navigation"
+import { supabase } from '@/lib/supabaseClient'
 
 export default function AuthForm() {
   const [activeTab, setActiveTab] = useState("login")
@@ -49,18 +50,14 @@ export default function AuthForm() {
     }
 
     setLoading(true)
-    const response = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
     })
-    const data = await response.json()
     setLoading(false)
 
-    if (!response.ok) {
-      setError(data.error || 'Signup failed')
+    if (error) {
+      setError(error.message)
     } else {
       console.log("Signup response:", data)
       router.push('/home')
@@ -82,18 +79,14 @@ export default function AuthForm() {
     }
 
     setLoading(true)
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     })
-    const data = await response.json()
     setLoading(false)
 
-    if (!response.ok) {
-      setError(data.error || 'Login failed')
+    if (error) {
+      setError(error.message)
     } else {
       console.log("Login response:", data)
       router.push('/home')

@@ -24,18 +24,29 @@ const HomePage = () => {
     const router = useRouter();
 
     useEffect(() => {
-        checkAuth();
-    }, []);
+        const checkAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                setLoading(false);
+                fetchFolders();
+            } else {
+                router.push('/auth');
+            }
+        };
 
-    const checkAuth = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            router.push('/auth');
-            return;
-        }
-        setLoading(false);
-        fetchFolders();
-    };
+        checkAuth();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user) {
+                setLoading(false);
+                fetchFolders();
+            } else {
+                router.push('/auth');
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     const fetchFolders = async () => {
         try {
@@ -58,6 +69,10 @@ const HomePage = () => {
     const closeModal = () => setIsModalOpen(false);
 
     const toggleChat = () => setIsChatVisible(!isChatVisible);
+
+    if (loading) {
+        return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    }
 
     return (
         <div className="flex h-screen bg-background">
