@@ -108,7 +108,7 @@ const HomePage = () => {
 
             {/* Right Panel - Chat */}
             {isChatVisible && (
-                <div className="w-96 border-l border-border">
+                <div className="w-96 border-l border-border h-full">
                     <ChatPanel selectedFileId={selectedFileId} selectedFileName={selectedFileName} />
                 </div>
             )}

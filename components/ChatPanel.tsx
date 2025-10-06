@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { supabase } from "@/lib/supabaseClient";
 
 interface Citation {
@@ -118,7 +118,7 @@ export function ChatPanel({ selectedFileId, selectedFileName }: ChatPanelProps) 
     };
 
     return (
-        <div className="h-full flex flex-col border-l border-border bg-background">
+        <div className="h-full flex flex-col border-l border-border bg-background overflow-hidden">
             <div className="p-4 border-b border-border">
                 <h2 className="text-lg font-semibold text-foreground">Ask Questions</h2>
                 {selectedFileName ? (
@@ -128,7 +128,7 @@ export function ChatPanel({ selectedFileId, selectedFileName }: ChatPanelProps) 
                 )}
             </div>
 
-            <ScrollArea className="flex-1 p-4">
+            <div className="flex-1 p-4 overflow-y-auto">
                 {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center">
                         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -222,7 +222,7 @@ export function ChatPanel({ selectedFileId, selectedFileName }: ChatPanelProps) 
                         )}
                     </div>
                 )}
-            </ScrollArea>
+            </div>
 
             <div className="p-4 border-t border-border">
                 <div className="flex gap-2">
