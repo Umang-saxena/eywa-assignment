@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { setCache, getCache, deleteCache } from "@/lib/redis";
 
 export async function GET(req: NextRequest) {
     try {
@@ -15,6 +16,13 @@ export async function GET(req: NextRequest) {
 
         const { searchParams } = new URL(req.url);
         const folderId = searchParams.get('folder_id');
+
+        const cacheKey = `files_folder_${folderId || 'all'}`;
+        const cachedFiles = await getCache(cacheKey);
+        if (cachedFiles) {
+            console.log("Served from cache");
+            return NextResponse.json(cachedFiles);
+        }
 
         let query = supabase
             .from('documents')
@@ -42,6 +50,9 @@ export async function GET(req: NextRequest) {
             status: file.status as 'processing' | 'ready' | 'failed',
             path: file.path
         }));
+
+        setCache(cacheKey, documents, 3600); // Cache for 1 hour
+        console.log("Fetched from DB");
 
         return NextResponse.json(documents);
     } catch (err: any) {
@@ -89,10 +100,10 @@ export async function DELETE(req: NextRequest) {
             return NextResponse.json({ error: "Document ID is required" }, { status: 400 });
         }
 
-        // First, get the document to retrieve the path
+        // First, get the document to retrieve the path and folder_id
         const { data: document, error: fetchError } = await supabase
             .from('documents')
-            .select('path')
+            .select('path, folder_id')
             .eq('id', id)
             .single();
 
@@ -118,6 +129,14 @@ export async function DELETE(req: NextRequest) {
 
         if (dbError) {
             return NextResponse.json({ error: dbError.message }, { status: 500 });
+        }
+
+        // Invalidate cache
+        const cacheKeySpecific = `files_folder_${document.folder_id || 'all'}`;
+        const cacheKeyAll = 'files_folder_all';
+        await deleteCache(cacheKeySpecific);
+        if (document.folder_id) {
+            await deleteCache(cacheKeyAll);
         }
 
         return NextResponse.json({ success: true });
