@@ -10,6 +10,7 @@ async function getPdfParse() {
     if (!pdfParse) {
         try {
             // Try to import from the correct path
+            // @ts-ignore
             const pdfParseModule = await import('pdf-parse/lib/pdf-parse.js');
             pdfParse = pdfParseModule.default || pdfParseModule;
         } catch (err) {
