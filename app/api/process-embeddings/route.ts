@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Import pdf-parse at the top to avoid dynamic import issues
-import pdfParse from 'pdf-parse';
-
 export async function POST(req: Request) {
     try {
         // Initialize Supabase client
@@ -113,7 +110,8 @@ export async function POST(req: Request) {
                         const arrayBuffer = await file.arrayBuffer();
                         const buffer = Buffer.from(arrayBuffer);
 
-                        // Use the imported pdfParse function directly
+                        // Dynamically import pdf-parse to avoid build-time issues
+                        const pdfParse = (await import('pdf-parse')).default;
                         const pdfData = await pdfParse(buffer);
                         content = pdfData.text || "";
 
