@@ -7,6 +7,7 @@ import FileUploadModal from '@/components/FileUploadModal'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner';
 
 interface Folder {
     id: string;
@@ -17,24 +18,38 @@ interface Folder {
 const HomePage = () => {
     const [folders, setFolders] = useState<Folder[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+    const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+    const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isChatVisible, setIsChatVisible] = useState(true);
+    const [isChatVisible, setIsChatVisible] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const router = useRouter();
 
     useEffect(() => {
-        checkAuth();
-    }, []);
+        const checkAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                setLoading(false);
+                fetchFolders();
+            } else {
+                router.push('/auth');
+            }
+        };
 
-    const checkAuth = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            router.push('/auth');
-            return;
-        }
-        setLoading(false);
-        fetchFolders();
-    };
+        checkAuth();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user) {
+                setLoading(false);
+                fetchFolders();
+            } else {
+                router.push('/auth');
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     const fetchFolders = async () => {
         try {
@@ -58,6 +73,18 @@ const HomePage = () => {
 
     const toggleChat = () => setIsChatVisible(!isChatVisible);
 
+    const handleSelectFile = (fileId: string | null, fileName?: string | null) => {
+        setSelectedFileId(fileId);
+        setSelectedFileName(fileName || null);
+        if (fileId) {
+            setIsChatVisible(true);
+        }
+    };
+
+    if (loading) {
+        return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    }
+
     return (
         <div className="flex h-screen bg-background">
             {/* Left Panel - Folders */}
@@ -71,18 +98,18 @@ const HomePage = () => {
             {/* Center Panel - Documents */}
             <div className={`flex-1 border-r border-border p-4 flex flex-col ${isChatVisible ? '' : 'border-r-0'}`}>
                 <div className="mb-4 flex justify-between items-center">
-                    <Button onClick={openModal}>Upload File</Button>
+                    <Button onClick={openModal} disabled={!selectedFolderId}>Upload File</Button>
                     <Button variant="outline" onClick={toggleChat}>
                         {isChatVisible ? 'Hide Chat' : 'Show Chat'}
                     </Button>
                 </div>
-                <DocumentList folderName={selectedFolder ? selectedFolder.name : "No Folder Selected"} folderId={selectedFolderId} />
+                <DocumentList folderName={selectedFolder ? selectedFolder.name : "No Folder Selected"} folderId={selectedFolderId} refreshTrigger={refreshTrigger} selectedFileId={selectedFileId} onSelectFile={handleSelectFile} />
             </div>
 
             {/* Right Panel - Chat */}
             {isChatVisible && (
-                <div className="w-96 border-l border-border">
-                    <ChatPanel />
+                <div className="w-96 border-l border-border h-full">
+                    <ChatPanel selectedFileId={selectedFileId} selectedFileName={selectedFileName} />
                 </div>
             )}
 
@@ -93,8 +120,10 @@ const HomePage = () => {
                     console.log('File uploaded successfully:', path);
                     // Refresh folders and documents
                     fetchFolders();
+                    setRefreshTrigger(prev => prev + 1);
                 }}
                 onUploadError={(error) => {
+                    // toast.error('File upload failed');
                     console.error('Upload error:', error);
                     // You can add error handling here, like showing a toast notification
                 }}

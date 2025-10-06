@@ -10,6 +10,18 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/card";
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface FolderItem {
     id: string;
@@ -27,10 +39,19 @@ export function FolderList({ selectedFolderId, onSelectFolder }: FolderListProps
     const [isCreating, setIsCreating] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
     const [loading, setLoading] = useState(true);
+    const [folderToDelete, setFolderToDelete] = useState<FolderItem | null>(null);
+    const [folderToRename, setFolderToRename] = useState<FolderItem | null>(null);
+    const [renameFolderName, setRenameFolderName] = useState("");
+    const router = useRouter();
 
     useEffect(() => {
         fetchFolders();
     }, []);
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        router.push('/auth');
+    };
 
     const fetchFolders = async () => {
     try {
@@ -94,6 +115,26 @@ const handleDeleteFolder = async (folderId: string) => {
         }
     } catch (error) {
         console.error('Error deleting folder:', error);
+    }
+};
+
+const handleRenameFolder = async (folderId: string, newName: string) => {
+    try {
+        const response = await fetch(`/api/folders?id=${folderId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name: newName }),
+        });
+
+        if (response.ok) {
+            setFolders(folders.map(f => f.id === folderId ? { ...f, name: newName } : f));
+        } else {
+            console.error('Error renaming folder:', await response.json());
+        }
+    } catch (error) {
+        console.error('Error renaming folder:', error);
     }
 };
 
@@ -172,13 +213,16 @@ const handleDeleteFolder = async (folderId: string) => {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => {
+                                                setFolderToRename(folder);
+                                                setRenameFolderName(folder.name);
+                                            }}>
                                                 <Pencil className="h-4 w-4 mr-2" />
                                                 Rename
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 className="text-destructive"
-                                                onClick={() => handleDeleteFolder(folder.id)}
+                                                onClick={() => setFolderToDelete(folder)}
                                             >
                                                 <Trash2 className="h-4 w-4 mr-2" />
                                                 Delete
@@ -191,6 +235,62 @@ const handleDeleteFolder = async (folderId: string) => {
                     </div>
                 )}
             </div>
+            <div className="p-4 border-t border-border">
+                <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleLogout}
+                >
+                    Logout
+                </Button>
+            </div>
+
+            <AlertDialog open={!!folderToDelete} onOpenChange={() => setFolderToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Folder</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete "{folderToDelete?.name}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (folderToDelete) {
+                                handleDeleteFolder(folderToDelete.id);
+                                setFolderToDelete(null);
+                            }
+                        }}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={!!folderToRename} onOpenChange={() => setFolderToRename(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Rename Folder</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Enter a new name for "{folderToRename?.name}".
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="py-4">
+                        <Input
+                            value={renameFolderName}
+                            onChange={(e) => setRenameFolderName(e.target.value)}
+                            placeholder="New folder name"
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (folderToRename && renameFolderName.trim()) {
+                                handleRenameFolder(folderToRename.id, renameFolderName.trim());
+                                setFolderToRename(null);
+                            }
+                        }}>Rename</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

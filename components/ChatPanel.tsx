@@ -1,10 +1,12 @@
-import { useState } from "react";
+"use client";
+import { useState, useEffect } from "react";
 import { Send, FileText, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
+import { supabase } from "@/lib/supabaseClient";
 
 interface Citation {
     docName: string;
@@ -14,50 +16,101 @@ interface Citation {
 
 interface Message {
     id: string;
-    role: "user" | "assistant";
+    role: "user" | "assistant" | "system";
     content: string;
     citations?: Citation[];
     chunks?: string[];
 }
 
-export function ChatPanel() {
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: "1",
-            role: "user",
-            content: "What are the key findings in the annual report?",
-        },
-        {
-            id: "2",
-            role: "assistant",
-            content:
-                "Based on the annual report, the key findings include: 1) Revenue increased by 24% year-over-year to $4.2B, 2) Customer base grew to 2.5M active users, 3) The company expanded operations to 15 new markets, and 4) Net profit margin improved to 18%.",
-            citations: [
-                { docName: "Annual Report 2024.pdf", page: 3 },
-                { docName: "Annual Report 2024.pdf", page: 12 },
-                { docName: "Annual Report 2024.pdf", page: 45 },
-            ],
-            chunks: [
-                "Revenue for fiscal year 2024 reached $4.2 billion, representing a 24% increase compared to the previous year...",
-                "Our customer base has grown significantly, with 2.5 million active users as of Q4 2024...",
-                "We successfully expanded our operations into 15 new international markets...",
-            ],
-        },
-    ]);
+interface ChatPanelProps {
+    selectedFileId?: string | null;
+    selectedFileName?: string | null;
+}
+
+export function ChatPanel({ selectedFileId, selectedFileName }: ChatPanelProps) {
+    const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [showChunks, setShowChunks] = useState<Record<string, boolean>>({});
+    const [isLoading, setIsLoading] = useState(false);
+    const [userName, setUserName] = useState<string | null>(null);
 
-    const handleSend = () => {
-        if (!input.trim()) return;
+    useEffect(() => {
+        // Fetch user name from supabase auth
+        const fetchUserName = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // Use user.user_metadata.name if exists, else fallback to email prefix
+                const name = (user.user_metadata && user.user_metadata.name) || user.email?.split("@")[0] || "User";
+                setUserName(name);
+            }
+        };
+        fetchUserName();
+    }, []);
 
-        const newMessage: Message = {
+    useEffect(() => {
+        // Reset messages when selected file changes
+        setMessages([]);
+        if (selectedFileId ) {
+            // Add greeting message
+            setMessages([{
+                id: "greeting",
+                role: "system",
+                content: `Hello, how can we help you?`
+            }]);
+        }
+    }, [selectedFileId]);
+
+    const handleSend = async () => {
+        if (!input.trim() || !selectedFileId) return;
+
+        const userMessage: Message = {
             id: Date.now().toString(),
             role: "user",
             content: input,
         };
 
-        setMessages([...messages, newMessage]);
+        setMessages(prev => [...prev, userMessage]);
         setInput("");
+        setIsLoading(true);
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: input,
+                    fileId: selectedFileId,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to get response');
+            }
+
+            const data = await response.json();
+
+            const assistantMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: data.content,
+                citations: data.citations,
+                chunks: data.chunks,
+            };
+
+            setMessages(prev => [...prev, assistantMessage]);
+        } catch (error) {
+            console.error('Error sending message:', error);
+            const errorMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: "Sorry, I encountered an error while processing your message. Please try again.",
+            };
+            setMessages(prev => [...prev, errorMessage]);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const toggleChunks = (messageId: string) => {
@@ -65,15 +118,17 @@ export function ChatPanel() {
     };
 
     return (
-        <div className="h-full flex flex-col border-l border-border bg-background">
+        <div className="h-full flex flex-col border-l border-border bg-background overflow-hidden">
             <div className="p-4 border-b border-border">
                 <h2 className="text-lg font-semibold text-foreground">Ask Questions</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Chat about documents in this folder
-                </p>
+                {selectedFileName ? (
+                    <p className="text-sm text-muted-foreground mt-1">Selected File: {selectedFileName}</p>
+                ) : (
+                    <p className="text-sm text-muted-foreground mt-1">Chat about documents in this folder</p>
+                )}
             </div>
 
-            <ScrollArea className="flex-1 p-4">
+            <div className="flex-1 p-4 overflow-y-auto">
                 {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center">
                         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -96,7 +151,9 @@ export function ChatPanel() {
                                     <Card
                                         className={`p-3 max-w-[85%] ${message.role === "user"
                                                 ? "bg-primary text-primary-foreground"
-                                                : "bg-card"
+                                                : message.role === "system"
+                                                    ? "bg-accent text-foreground font-semibold"
+                                                    : "bg-card"
                                             }`}
                                     >
                                         <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -152,9 +209,20 @@ export function ChatPanel() {
                                 )}
                             </div>
                         ))}
+
+                        {isLoading && (
+                            <div className="flex justify-start">
+                                <Card className="p-3 max-w-[85%] bg-card">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                                        <p className="text-sm text-muted-foreground">Thinking...</p>
+                                    </div>
+                                </Card>
+                            </div>
+                        )}
                     </div>
                 )}
-            </ScrollArea>
+            </div>
 
             <div className="p-4 border-t border-border">
                 <div className="flex gap-2">
@@ -162,9 +230,10 @@ export function ChatPanel() {
                         placeholder="Ask a question about the documents..."
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                        onKeyDown={(e) => e.key === "Enter" && !isLoading && handleSend()}
+                        disabled={isLoading || !selectedFileId}
                     />
-                    <Button onClick={handleSend} size="icon">
+                    <Button onClick={handleSend} size="icon" disabled={isLoading || !selectedFileId}>
                         <Send className="h-4 w-4" />
                     </Button>
                 </div>
