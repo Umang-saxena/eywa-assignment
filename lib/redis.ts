@@ -1,69 +1,52 @@
-import Redis from "ioredis";
+import { Redis } from "@upstash/redis";
 
-let redis: Redis | null = null;
-
-if (!redis) {
-    if (process.env.REDIS_URL) {
-        // ✅ For production (e.g., Upstash, Render, or any managed Redis)
-        redis = new Redis(process.env.REDIS_URL);
-    } else {
-        // ✅ For local development (Docker Redis)
-        redis = new Redis({
-            host: process.env.REDIS_HOST || "127.0.0.1",
-            port: Number(process.env.REDIS_PORT) || 6379,
-            // password: process.env.REDIS_PASSWORD, // optional
-        });
-    }
-
-    redis.on("connect", () => {
-        console.log("✅ Connected to Redis");
-    });
-
-    redis.on("error", (err) => {
-        console.error("❌ Redis connection error:", err);
-    });
-}
+export const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 /**
- * Set a cache value with optional expiry time (in seconds)
+ * Set cache with optional expiry (seconds)
  */
-export async function setCache(key: string, value: any, ttlInSeconds?: number): Promise<void> {
+export async function setCache(key: string, value: any, ttlInSeconds?: number) {
     try {
-        const serializedValue = JSON.stringify(value);
+        const serialized =
+            typeof value === "string" ? value : JSON.stringify(value);
         if (ttlInSeconds) {
-            await redis!.setex(key, ttlInSeconds, serializedValue);
+            await redis.set(key, serialized, { ex: ttlInSeconds });
         } else {
-            await redis!.set(key, serializedValue);
+            await redis.set(key, serialized);
         }
         console.log(`🟢 Cached key: ${key}`);
     } catch (err) {
-        console.error("❌ Error setting cache:", err);
+        console.error(`❌ Error setting cache for key: ${key}`, err);
     }
 }
 
 /**
- * Get a cached value and parse JSON if possible
+ * Get cached value safely
  */
 export async function getCache<T = any>(key: string): Promise<T | null> {
     try {
-        const data = await redis!.get(key);
-        return data ? JSON.parse(data) : null;
+        const data = await redis.get<string>(key);
+        if (!data) return null;
+
+        // Handle both raw strings and stringified JSON
+        if (typeof data === "string" && data.trim().startsWith("{")) {
+            return JSON.parse(data);
+        }
+
+        return data as any; // fallback for plain strings
     } catch (err) {
-        console.error("❌ Error getting cache:", err);
+        console.error(`❌ Error parsing cache for key: ${key}`, err);
         return null;
     }
 }
 
 /**
- * Delete a cached value
+ * Delete cache
  */
-export async function deleteCache(key: string): Promise<void> {
-    try {
-        await redis!.del(key);
-        console.log(`🗑️ Deleted cache key: ${key}`);
-    } catch (err) {
-        console.error("❌ Error deleting cache:", err);
-    }
+export async function deleteCache(key: string) {
+    await redis.del(key);
+    console.log(`🗑️ Deleted key: ${key}`);
 }
-
-export default redis;
