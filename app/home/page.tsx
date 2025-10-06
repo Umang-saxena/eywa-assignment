@@ -28,27 +28,32 @@ const HomePage = () => {
 
     useEffect(() => {
         const checkAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                setLoading(false);
-                fetchFolders();
-            } else {
+            try {
+                const response = await fetch('/api/auth/session', {
+                    method: 'GET',
+                    credentials: 'include',
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.user) {
+                        setLoading(false);
+                        fetchFolders();
+                    } else {
+                        router.push('/auth');
+                    }
+                } else {
+                    router.push('/auth');
+                }
+            } catch (error) {
+                console.error('Error checking session:', error);
                 router.push('/auth');
             }
         };
 
         checkAuth();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (session?.user) {
-                setLoading(false);
-                fetchFolders();
-            } else {
-                router.push('/auth');
-            }
-        });
-
-        return () => subscription.unsubscribe();
+        // Remove supabase.auth.onAuthStateChange subscription as session is checked via API
+        // return () => subscription.unsubscribe();
     }, []);
 
     const fetchFolders = async () => {

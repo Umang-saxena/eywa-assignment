@@ -13,7 +13,13 @@ const getSupabaseServerClient = async () => {
             cookies: {
                 getAll: () => cookieStore.getAll(),
                 setAll: (cookiesToSet) => {
-                    // No-op in non-auth routes
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) => {
+                            cookieStore.set(name, value, options);
+                        });
+                    } catch (error) {
+                        // Handle cookie setting errors in middleware/server components
+                    }
                 },
             },
         }

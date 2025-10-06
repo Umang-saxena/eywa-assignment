@@ -103,6 +103,7 @@ const handleDeleteFolder = async (folderId: string) => {
     try {
         const response = await fetch(`/api/folders?id=${folderId}`, {
             method: 'DELETE',
+            credentials: 'include',
         });
 
         if (response.ok) {
@@ -125,6 +126,7 @@ const handleRenameFolder = async (folderId: string, newName: string) => {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include',
             body: JSON.stringify({ name: newName }),
         });
 
