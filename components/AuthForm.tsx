@@ -50,18 +50,25 @@ export default function AuthForm() {
     }
 
     setLoading(true)
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-    setLoading(false)
-
-    if (error) {
-      setError(error.message)
-    } else {
-      console.log("Signup response:", data)
-      router.push('/home')
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        console.log("Signup response:", data)
+        router.push('/home')
+      } else {
+        setError(data.error || "Signup failed")
+      }
+    } catch (err: any) {
+      setError(err.message)
     }
+    setLoading(false)
   }
 
   const signIn = async (e: React.FormEvent) => {
@@ -79,18 +86,26 @@ export default function AuthForm() {
     }
 
     setLoading(true)
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    setLoading(false)
-
-    if (error) {
-      setError(error.message)
-    } else {
-      console.log("Login response:", data)
-      router.push('/home')
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        console.log("Login response:", data)
+        // Use full page reload to ensure session cookies are recognized
+        window.location.href = '/home';
+      } else {
+        setError(data.error || "Login failed")
+      }
+    } catch (err: any) {
+      setError(err.message)
     }
+    setLoading(false)
   }
 
   return (
