@@ -105,11 +105,13 @@ export async function POST(request: NextRequest) {
     // Generate embedding for the user's query
     let queryEmbedding: number[];
     try {
-      const embeddingModel = genAI.getGenerativeModel({ 
-        model: 'text-embedding-004' 
+      console.log('Generating embedding for query:', trimmedMessage);
+      const embeddingModel = genAI.getGenerativeModel({
+        model: 'text-embedding-004'
       });
       const queryEmbeddingResult = await embeddingModel.embedContent(trimmedMessage);
       queryEmbedding = queryEmbeddingResult.embedding.values;
+      console.log('Query embedding generated, length:', queryEmbedding.length);
 
       // Validate embedding
       if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
@@ -129,7 +131,7 @@ export async function POST(request: NextRequest) {
       {
         query_embedding: queryEmbedding,
         input_folder_id: fileData.folder_id,
-        match_threshold: 0.7,
+        match_threshold: 0.1,
         match_count: 5,
       }
     );
@@ -140,6 +142,32 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to search document embeddings' },
         { status: 500 }
       );
+    }
+
+    // Debug logging
+    console.log(`Folder ID: ${fileData.folder_id}`);
+    const { data: embeddingData, error: countError } = await supabase
+      .from('embeddings')
+      .select('id')
+      .eq('folder_id', fileData.folder_id);
+    if (countError) {
+      console.error('Count error:', countError);
+    }
+    console.log(`Total embeddings in folder: ${embeddingData?.length || 0}`);
+    console.log(`Search results for query "${trimmedMessage}": found ${similarChunks?.length || 0} chunks`);
+    if (similarChunks && similarChunks.length > 0) {
+      console.log('Similarities:', similarChunks.map((c: any) => c.similarity));
+      console.log('Chunk contents preview:', similarChunks.slice(0, 2).map((c: any) => c.content.substring(0, 100) + '...'));
+    } else {
+      // Log some stored embeddings to check content
+      const { data: sampleEmbeddings, error: sampleError } = await supabase
+        .from('embeddings')
+        .select('content')
+        .eq('folder_id', fileData.folder_id)
+        .limit(2);
+      if (!sampleError && sampleEmbeddings) {
+        console.log('Sample stored content:', sampleEmbeddings.map(e => e.content.substring(0, 100) + '...'));
+      }
     }
 
     // Handle case where no relevant chunks are found
@@ -168,8 +196,8 @@ export async function POST(request: NextRequest) {
     // Generate response using Gemini with improved prompt
     let generatedContent: string;
     try {
-      const model = genAI.getGenerativeModel({ 
-        model: 'gemini-1.5-flash',
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
         generationConfig: {
           temperature: 0.7,
           topP: 0.95,

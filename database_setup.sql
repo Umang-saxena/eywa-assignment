@@ -38,7 +38,7 @@ CREATE TABLE embeddings (
     page_number INT,
     chunk_index INT,
     content TEXT NOT NULL,
-    embedding VECTOR(1536) NOT NULL    -- adjust dim to match model (e.g. 1536 for OpenAI)
+    embedding VECTOR(768) NOT NULL    -- adjust dim to match model (e.g. 768 for Google text-embedding-004)
 );
 
 -- Vector index for semantic search
