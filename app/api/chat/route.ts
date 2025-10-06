@@ -95,6 +95,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!fileData.folder_id) {
+      return NextResponse.json(
+        { error: 'File folder not found' },
+        { status: 500 }
+      );
+    }
+
     // Generate embedding for the user's query
     let queryEmbedding: number[];
     try {
@@ -121,7 +128,7 @@ export async function POST(request: NextRequest) {
       'search_embeddings',
       {
         query_embedding: queryEmbedding,
-        folder_id: fileData.folder_id,
+        input_folder_id: fileData.folder_id,
         match_threshold: 0.7,
         match_count: 5,
       }

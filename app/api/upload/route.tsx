@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Import pdf-parse at the top level to avoid dynamic import issues
 let pdfParse: any = null;
@@ -39,6 +40,16 @@ export async function POST(req: Request) {
                 persistSession: false
             }
         });
+
+        // Initialize Google Generative AI
+        const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+        if (!GOOGLE_API_KEY) {
+            return NextResponse.json(
+                { error: "Server configuration error: Missing Google API key" },
+                { status: 500 }
+            );
+        }
+        const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
         // Parse form data
         const formData = await req.formData();
@@ -181,6 +192,78 @@ export async function POST(req: Request) {
                         error: insertError.message
                     });
                     continue;
+                }
+
+                // Generate embeddings for the document content
+                try {
+                    console.log(`Starting embedding generation for file: ${fileName}`);
+                    console.log(`Content length: ${content.length}`);
+                    console.log(`GOOGLE_API_KEY present: ${!!process.env.GOOGLE_API_KEY}`);
+                    console.log(`Content preview: ${content.substring(0, 100)}...`);
+
+                    // Chunk the content into smaller pieces
+                    const chunkSize = 1000; // Characters per chunk
+                    const overlap = 200; // Overlap between chunks
+                    const chunks = [];
+
+                    if (content && content.length > 0) {
+                        for (let i = 0; i < content.length; i += chunkSize - overlap) {
+                            const chunk = content.slice(i, i + chunkSize);
+                            if (chunk.trim().length > 0) {
+                                chunks.push(chunk.trim());
+                            }
+                        }
+                    }
+
+                    console.log(`Chunks created: ${chunks.length}`);
+                    for (let i = 0; i < Math.min(chunks.length, 3); i++) {
+                        console.log(`Chunk ${i} length: ${chunks[i].length}`);
+                    }
+
+                    // Generate embeddings for each chunk
+                    const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+                    const embeddingsData = [];
+
+                    for (let i = 0; i < chunks.length; i++) {
+                        try {
+                            console.log(`Generating embedding for chunk ${i}...`);
+                            const chunkEmbeddingResult = await embeddingModel.embedContent(chunks[i]);
+                            const embedding = chunkEmbeddingResult.embedding.values;
+                            console.log(`Embedding generated for chunk ${i}, dimension: ${embedding.length}`);
+
+                            embeddingsData.push({
+                                folder_id: folderId,
+                                doc_id: fileData.id,
+                                page_number: 1, // For simplicity, assuming single page or no page info
+                                chunk_index: i,
+                                content: chunks[i],
+                                embedding: embedding
+                            });
+                        } catch (embeddingError: any) {
+                            console.error(`Embedding generation error for chunk ${i}:`, embeddingError.message);
+                            // Continue with other chunks
+                        }
+                    }
+
+                    // Insert embeddings into the database
+                    if (embeddingsData.length > 0) {
+                        console.log(`Inserting ${embeddingsData.length} embeddings into database...`);
+                        const { error: embeddingInsertError } = await supabase
+                            .from('embeddings')
+                            .insert(embeddingsData);
+
+                        if (embeddingInsertError) {
+                            console.error('Embedding insert error:', embeddingInsertError);
+                            // Don't fail the upload if embedding insertion fails
+                        } else {
+                            console.log('Embeddings inserted successfully');
+                        }
+                    } else {
+                        console.log('No embeddings to insert');
+                    }
+                } catch (embeddingProcessError: any) {
+                    console.error('Embedding processing error:', embeddingProcessError.message);
+                    // Don't fail the upload if embedding processing fails
                 }
 
                 uploadedFiles.push(fileData);
