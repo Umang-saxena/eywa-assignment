@@ -12,6 +12,7 @@ interface Citation {
     docName: string;
     page?: number;
     section?: string;
+    similarity?: number;
 }
 
 interface Message {
@@ -161,19 +162,30 @@ export function ChatPanel({ selectedFileId, selectedFileName }: ChatPanelProps) 
                                 </div>
 
                                 {message.citations && message.citations.length > 0 && (
-                                    <div className="ml-2 space-y-2">
-                                        <div className="flex flex-wrap gap-2">
+                                    <div className="ml-2 mt-3 p-3 bg-muted/30 rounded-lg border border-border/50">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <FileText className="h-4 w-4 text-primary" />
+                                            <span className="text-sm font-medium text-foreground">Sources</span>
+                                        </div>
+                                        <div className="space-y-2">
                                             {message.citations.map((citation, idx) => (
-                                                <Badge
-                                                    key={idx}
-                                                    variant="secondary"
-                                                    className="text-xs cursor-pointer hover:bg-secondary/80"
-                                                >
-                                                    <FileText className="h-3 w-3 mr-1" />
-                                                    {citation.docName}
-                                                    {citation.page && ` • p.${citation.page}`}
-                                                    {citation.section && ` • ${citation.section}`}
-                                                </Badge>
+                                                <div key={idx} className="flex items-start gap-2 p-2 bg-background/50 rounded border">
+                                                    <div className="flex-1">
+                                                        <div className="text-sm font-medium text-foreground">
+                                                            {citation.docName}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground mt-1">
+                                                            {citation.page && `Page ${citation.page}`}
+                                                            {citation.page && citation.section && ' • '}
+                                                            {citation.section && citation.section.replace('Chunk ', 'Section ')}
+                                                            {citation.similarity && (
+                                                                <span className="ml-2 text-xs">
+                                                                    ({Math.round(citation.similarity * 100)}% match)
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
 
