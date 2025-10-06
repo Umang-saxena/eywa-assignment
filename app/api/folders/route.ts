@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { setCache, getCache, deleteCache } from "@/lib/redis";
 
 const getSupabaseServerClient = async () => {
     const cookieStore = await cookies();
@@ -28,11 +29,20 @@ const getSupabaseServerClient = async () => {
 
 
 export async function GET() {
+
+
     const supabase = await getSupabaseServerClient();
 
     const { data: { user }, error } = await supabase.auth.getUser();
     // console.log("user in GET /api/folders:", user, error);
     if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const cacheKey = `folders_user_${user.id}`;
+    const cachedFolders = await getCache(cacheKey);
+    if (cachedFolders) {
+        console.log("Served from cache");
+        return NextResponse.json(cachedFolders);
+    }
 
     const { data: folders, error: folderError } = await supabase
         .from("folders")
@@ -51,6 +61,9 @@ export async function GET() {
             return { ...folder, docCount: count ?? 0 };
         })
     );
+
+    setCache(cacheKey, foldersWithCount, 3600); // Cache for 1 hour
+    console.log("Fetched from DB");
 
     return NextResponse.json(foldersWithCount);
 }
@@ -73,6 +86,9 @@ export async function POST(req: NextRequest) {
             .single();
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+        const cacheKey = `folders_user_${user.id}`;
+        await deleteCache(cacheKey);
 
         return NextResponse.json(data);
     } catch (err: any) {
@@ -104,6 +120,9 @@ export async function PUT(req: NextRequest) {
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+        const cacheKey = `folders_user_${user.id}`;
+        await deleteCache(cacheKey);
+
         return NextResponse.json(data);
     } catch (err: any) {
         return NextResponse.json({ error: err.message }, { status: 500 });
@@ -128,6 +147,9 @@ export async function DELETE(req: NextRequest) {
             .eq("user_id", user.id);
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+        const cacheKey = `folders_user_${user.id}`;
+        await deleteCache(cacheKey);
 
         return NextResponse.json({ success: true });
     } catch (err: any) {
