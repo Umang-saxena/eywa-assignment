@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+
 interface FileUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -12,9 +13,16 @@ interface FileUploadModalProps {
   folderId?: string | null;
 }
 
+interface ProgressState {
+  file: string;
+  page: number;
+  totalPages: number;
+}
+
 const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUploadSuccess, onUploadError, folderId }) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState<ProgressState[]>([]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -25,6 +33,7 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
     if (selectedFiles.length === 0) return;
 
     setIsUploading(true);
+    setProgress([]);
     try {
       const formData = new FormData();
       selectedFiles.forEach(file => {
@@ -39,29 +48,64 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
         body: formData,
       });
 
-      const result = await response.json();
+      if (!response.ok) {
+        onUploadError('Upload failed');
+        return;
+      }
 
-      if (response.ok) {
-        if (result.uploadedFiles && result.uploadedFiles.length > 0) {
-          onUploadSuccess(result.uploadedFiles.map((f: any) => f.path).join(', '));
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const data = JSON.parse(line);
+              if (data.type === 'progress') {
+                setProgress(prev => {
+                  const existing = prev.find(p => p.file === data.file);
+                  if (existing) {
+                    return prev.map(p => p.file === data.file ? { ...p, page: data.page, totalPages: data.totalPages } : p);
+                  } else {
+                    return [...prev, { file: data.file, page: data.page, totalPages: data.totalPages }];
+                  }
+                });
+              } else if (data.type === 'complete') {
+                if (data.uploadedFiles && data.uploadedFiles.length > 0) {
+                  onUploadSuccess(data.uploadedFiles.map((f: any) => f.path).join(', '));
+                }
+                if (data.errors && data.errors.length > 0) {
+                  onUploadError(`Some files failed: ${data.errors.map((e: any) => `${e.file}: ${e.error}`).join(', ')}`);
+                }
+                setSelectedFiles([]);
+                onClose();
+              } else if (data.type === 'error') {
+                onUploadError(data.message);
+              }
+            } catch (e) {
+              console.error('Failed to parse progress:', e);
+            }
+          }
         }
-        if (result.errors && result.errors.length > 0) {
-          onUploadError(`Some files failed: ${result.errors.map((e: any) => `${e.file}: ${e.error}`).join(', ')}`);
-        }
-        setSelectedFiles([]);
-        onClose();
-      } else {
-        onUploadError(result.error || 'Upload failed');
       }
     } catch (error) {
       onUploadError('Network error occurred');
     } finally {
       setIsUploading(false);
+      setProgress([]);
     }
   };
 
   const handleClose = () => {
     setSelectedFiles([]);
+    setProgress([]);
     onClose();
   };
 
@@ -90,6 +134,21 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUp
                     <li key={index}>{file.name}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+            {isUploading && progress.length > 0 && (
+              <div className="space-y-2">
+                {progress.map((p, index) => (
+                  <div key={index}>
+                    <p className="text-sm">{p.file}: Page {p.page} of {p.totalPages}</p>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full"
+                        style={{ width: `${(p.page / p.totalPages) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             <div className="flex justify-end space-x-2">
