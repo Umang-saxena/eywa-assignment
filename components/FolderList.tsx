@@ -205,9 +205,9 @@ const handleRenameFolder = async (folderId: string, newName: string) => {
                                             <p className="text-sm font-medium truncate text-foreground">
                                                 {folder.name}
                                             </p>
-                                            <p className="text-xs text-muted-foreground">
+                                            {/* <p className="text-xs text-muted-foreground">
                                                 {folder.docCount} docs
-                                            </p>
+                                            </p> */}
                                         </div>
                                     </div>
 
