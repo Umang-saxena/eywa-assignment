@@ -137,6 +137,9 @@ eywa/
 └── package.json                  # Dependencies and scripts
 ```
 
+Project Architecture
+<img width="1293" height="1057" alt="diagram-export-7-10-2025-11_14_23-am" src="https://github.com/user-attachments/assets/61061ece-0dfe-4bf7-b797-91654b79e2e9" />
+
 ## 🔧 Configuration
 
 ### Environment Variables
