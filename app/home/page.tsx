@@ -24,6 +24,7 @@ const HomePage = () => {
     const [isChatVisible, setIsChatVisible] = useState(false);
     const [loading, setLoading] = useState(true);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [refreshFoldersTrigger, setRefreshFoldersTrigger] = useState(0);
     const router = useRouter();
 
     useEffect(() => {
@@ -97,6 +98,7 @@ const HomePage = () => {
                 <FolderList
                     selectedFolderId={selectedFolderId || undefined}
                     onSelectFolder={setSelectedFolderId}
+                    refreshTrigger={refreshFoldersTrigger}
                 />
             </div>
 
@@ -126,6 +128,7 @@ const HomePage = () => {
                     // Refresh folders and documents
                     fetchFolders();
                     setRefreshTrigger(prev => prev + 1);
+                    setRefreshFoldersTrigger(prev => prev + 1);
                 }}
                 onUploadError={(error) => {
                     // toast.error('File upload failed');

@@ -32,9 +32,10 @@ interface FolderItem {
 interface FolderListProps {
     selectedFolderId?: string | null;
     onSelectFolder: (folderId: string | null) => void;
+    refreshTrigger?: number;
 }
 
-export function FolderList({ selectedFolderId, onSelectFolder }: FolderListProps) {
+export function FolderList({ selectedFolderId, onSelectFolder, refreshTrigger }: FolderListProps) {
     const [folders, setFolders] = useState<FolderItem[]>([]);
     const [isCreating, setIsCreating] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
@@ -47,6 +48,12 @@ export function FolderList({ selectedFolderId, onSelectFolder }: FolderListProps
     useEffect(() => {
         fetchFolders();
     }, []);
+
+    useEffect(() => {
+        if (refreshTrigger && refreshTrigger > 0) {
+            fetchFolders();
+        }
+    }, [refreshTrigger]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();

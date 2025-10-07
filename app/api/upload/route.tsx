@@ -296,6 +296,19 @@ export async function POST(req: Request) {
                 await deleteCache(`files_folder_${folderId}`);
                 await deleteCache('files_folder_all');
 
+                // Invalidate folders cache if any files were uploaded
+                if (uploadedFiles.length > 0) {
+                    const { data: folderData, error: folderError } = await supabase
+                        .from('folders')
+                        .select('user_id')
+                        .eq('id', folderId)
+                        .single();
+
+                    if (!folderError && folderData) {
+                        await deleteCache(`folders_user_${folderData.user_id}`);
+                    }
+                }
+
                 // Send complete
                 controller.enqueue(JSON.stringify({
                     type: 'complete',
