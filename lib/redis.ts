@@ -1,9 +1,15 @@
-import { Redis } from "@upstash/redis";
+import Redis from "ioredis";
 
-export const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+const redisClient = new Redis(process.env.REDIS_URL!, {
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: true,
+    lazyConnect: false,
 });
+
+redisClient.on("error", (err: Error) => console.error("Redis Client Error", err));
+redisClient.on("connect", () => console.log("✅ Connected to Redis Cloud"));
+
+export const redis = redisClient;
 
 /**
  * Set cache with optional expiry (seconds)
@@ -13,7 +19,7 @@ export async function setCache(key: string, value: any, ttlInSeconds?: number) {
         const serialized =
             typeof value === "string" ? value : JSON.stringify(value);
         if (ttlInSeconds) {
-            await redis.set(key, serialized, { ex: ttlInSeconds });
+            await redis.setex(key, ttlInSeconds, serialized);
         } else {
             await redis.set(key, serialized);
         }
@@ -28,11 +34,11 @@ export async function setCache(key: string, value: any, ttlInSeconds?: number) {
  */
 export async function getCache<T = any>(key: string): Promise<T | null> {
     try {
-        const data = await redis.get<string>(key);
+        const data = await redis.get(key);
         if (!data) return null;
 
         // Handle both raw strings and stringified JSON
-        if (typeof data === "string" && data.trim().startsWith("{")) {
+        if (typeof data === "string" && (data.trim().startsWith("{") || data.trim().startsWith("["))) {
             return JSON.parse(data);
         }
 
