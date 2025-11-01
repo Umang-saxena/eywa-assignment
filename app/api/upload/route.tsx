@@ -151,9 +151,26 @@ export async function POST(req: Request) {
                                 content = pages.join('\n\n'); // Join pages with double newline
                                 content = content.trim();
 
+                                // Fallback: if advanced page extraction yielded no pages, try simple extraction
                                 if (!content) {
-                                    console.warn(`No text extracted from PDF: ${fileName}`);
-                                    content = "[PDF appears to be empty or image-based]";
+                                    console.warn(`No text extracted from PDF via pagerender: ${fileName}. Falling back to simple extraction.`);
+                                    try {
+                                        const simple = await (await getPdfParse())(buffer);
+                                        const simpleText = (simple?.text || '').trim();
+                                        if (simpleText) {
+                                            content = simpleText;
+                                            pages = [simpleText];
+                                        } else {
+                                            content = "[PDF appears to be empty or image-based]";
+                                        }
+                                    } catch (e) {
+                                        content = "[PDF content extraction failed - file may be corrupted or image-based]";
+                                    }
+                                }
+
+                                // Ensure we always have at least one page when we have content
+                                if ((!pages || pages.length === 0) && content && content.trim().length > 0) {
+                                    pages = [content];
                                 }
                             } catch (pdfError: any) {
                                 console.error(`PDF parsing error for ${fileName}:`, pdfError.message);
@@ -271,7 +288,7 @@ export async function POST(req: Request) {
                                     console.error('Embedding insert error:', embeddingInsertError);
                                     // Don't fail the upload if embedding insertion fails
                                 } else {
-                                    console.log('Embeddings inserted successfully');
+                                    console.log(`Embeddings inserted successfully for file ${fileName}`);
                                 }
                             } else {
                                 console.log('No embeddings to insert');
